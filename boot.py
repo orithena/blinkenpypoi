@@ -1,3 +1,3 @@
-from blinkenpypoi import BlinkenPyPoi
+#from blinkenpypoi import BlinkenPyPoi
 
-main = BlinkenPyPoi()
+#main = BlinkenPyPoi()

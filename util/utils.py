@@ -1,4 +1,4 @@
-import micropython
+import micropython, utime
 
 class objdict(dict):
     def __getattr__(self, name):
