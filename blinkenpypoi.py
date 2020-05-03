@@ -45,39 +45,50 @@ class LEDs:
         self._led.framebuffer = self.fbview[pos:pos+4]
         return self._led
     def show(self):
+        # prepare buffer for frame
+        # frame header
         self.output[0] = 0x00
         self.output[1] = 0x00
         self.output[2] = 0x00
         self.output[3] = 0x00
         for a in range(self.pixel_count):
+            # copy all leds. takes care of color order (we've got BGR color order in our leds).
             p = a * 4
-            self.output[p+4] = self.framebuffer[p]
-            self.output[p+5] = self.framebuffer[p+3]
-            self.output[p+6] = self.framebuffer[p+2]
-            self.output[p+7] = self.framebuffer[p+1]
+            self.output[p+4] = self.framebuffer[p]    # Brightness
+            self.output[p+5] = self.framebuffer[p+3]  # Blue 
+            self.output[p+6] = self.framebuffer[p+2]  # Green
+            self.output[p+7] = self.framebuffer[p+1]  # Red
+        # frame tail
         self.output[self.outputsize-4] = 0xff
         self.output[self.outputsize-3] = 0xff
         self.output[self.outputsize-2] = 0xff
         self.output[self.outputsize-1] = 0xff
+        # send buffer out to SPI
         self._spi.write(self.output)
             
 
+# not @micropython.native, see loop()
 class BlinkenPyPoi:
     def __init__(self):
+        machine.freq(240000000)
         self.state = PoiState()
         self.state.leds = LEDs()
-    
+        
+    @micropython.native
     def mixer(self):
         t1 = utime.ticks_us()
         for effect in self.state.effects:
             effect.paint(self.state)
             t2 = utime.ticks_us()
-            gc.collect()
-            t3 = utime.ticks_us()
         self.state.leds.show()
+        t3 = utime.ticks_us()
+        # collecting the garbage once per frame (1.8ms), else it would add 3ms to the length of every 100th or so frame.
+        # we cannot have such artifacts. they'd be noticed in the visuals. frames must be of same length.
+        gc.collect()
         t4 = utime.ticks_us()
-        print(t2-t1, t3-t2, t4-t3, t4-t1)
+        print("paint:", t2-t1, "show:", t3-t2, "gc.collect:", t4-t3, "total:", t4-t1)
             
+    # the loop must not be @micropython.native, else Ctrl-C won't work on Serial Monitor
     def loop(self):
         while(True):
             self.state.hue = (self.state.hue + 1) % 255
@@ -101,4 +112,4 @@ class Effect:
         print("Effect initialized")
     def paint(self, state):
         for a in range(0,25):
-            state.leds[a].setHSV(state.hue, 255, 255)
+            state.leds[a].setHSV((state.hue + (a*10)) % 0xff, 255, 255)
